@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useSentences, useUserProgress, useVocabularyBank } from '../hooks/useData'
 import ExerciseEngine from '../components/ExerciseEngine'
 import type { CEFRLevel, TranslationLang } from '../types'
@@ -37,19 +37,21 @@ export default function ExercisesPage({ mode = 'language' }: ExercisesPageProps)
   }
 
   // Map Sentences to standard ExerciseItems
-  const exerciseItems = sentences.map(s => {
-    let trans = s.translation
-    if (translationLang === 'en') trans = s.translation_en ?? s.translation
+  const exerciseItems = useMemo(() => {
+    return sentences.map(s => {
+      let trans = s.translation
+      if (translationLang === 'en') trans = s.translation_en ?? s.translation
 
-    return {
-      id: s.id,
-      text: s.german, // For medical, s.german holds the English target text
-      translation: isMedical ? (s.translation_en || s.translation || '') : trans,
-      level: s.level,
-      audioUrl: s.audio_url,
-      extra: s.translation_de ? `Context: ${s.translation_de}` : null
-    }
-  })
+      return {
+        id: s.id,
+        text: s.german, // For medical, s.german holds the English target text
+        translation: isMedical ? (s.translation_en || s.translation || '') : trans,
+        level: s.level,
+        audioUrl: s.audio_url,
+        extra: s.translation_de ? `Context: ${s.translation_de}` : null
+      }
+    })
+  }, [sentences, translationLang, isMedical])
 
   return (
     <main className="page-container">
@@ -64,18 +66,20 @@ export default function ExercisesPage({ mode = 'language' }: ExercisesPageProps)
 
       {/* Controls */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24, alignItems: 'center' }}>
-        {/* Level tabs */}
-        <div className="level-tabs" style={{ marginBottom: 0 }}>
-          {levelsList.map(l => (
-            <button
-              key={l}
-              className={`level-tab${level === l ? ` active-${l}` : ''}`}
-              onClick={() => setLevel(l)}
-            >
-              {l === 'all' ? (isMedical ? 'All difficulties' : 'Alle') : l}
-            </button>
-          ))}
-        </div>
+        {/* Level tabs (only shown in Medical Mode for concept difficulty filter) */}
+        {isMedical && (
+          <div className="level-tabs" style={{ marginBottom: 0 }}>
+            {levelsList.map(l => (
+              <button
+                key={l}
+                className={`level-tab${level === l ? ` active-${l}` : ''}`}
+                onClick={() => setLevel(l)}
+              >
+                {l === 'all' ? 'All difficulties' : l}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Translation language (hidden in English-only Medical mode) */}
         {!isMedical && (

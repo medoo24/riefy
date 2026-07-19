@@ -2,10 +2,8 @@
 --  Denglisch — Supabase Database Schema
 --  Run this in: Supabase Dashboard → SQL Editor → New query
 -- ═══════════════════════════════════════════════════
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- ─── profiles ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profiles (
   id              UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -16,7 +14,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── sentences ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.sentences (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -32,7 +29,6 @@ CREATE TABLE IF NOT EXISTS public.sentences (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── words ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.words (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -47,7 +43,6 @@ CREATE TABLE IF NOT EXISTS public.words (
   created_by     UUID REFERENCES auth.users(id),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── dialogues ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.dialogues (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -59,7 +54,6 @@ CREATE TABLE IF NOT EXISTS public.dialogues (
   created_by UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── grammar_exercises ─────────────────────────────
 CREATE TABLE IF NOT EXISTS public.grammar_exercises (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -72,7 +66,6 @@ CREATE TABLE IF NOT EXISTS public.grammar_exercises (
   created_by     UUID REFERENCES auth.users(id),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── long_texts ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.long_texts (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -86,7 +79,6 @@ CREATE TABLE IF NOT EXISTS public.long_texts (
   created_by     UUID REFERENCES auth.users(id),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── user_completed_sentences ───────────────────────
 CREATE TABLE IF NOT EXISTS public.user_completed_sentences (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -95,7 +87,6 @@ CREATE TABLE IF NOT EXISTS public.user_completed_sentences (
   completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id, sentence_id)
 );
-
 -- ─── vocabulary_bank ───────────────────────────────
 CREATE TABLE IF NOT EXISTS public.vocabulary_bank (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -111,7 +102,6 @@ CREATE TABLE IF NOT EXISTS public.vocabulary_bank (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─── user_roles ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.user_roles (
   id      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -119,17 +109,14 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
   role    TEXT NOT NULL DEFAULT 'user',       -- user / admin
   UNIQUE(user_id)
 );
-
 -- ─── app_settings ──────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.app_settings (
   key   TEXT PRIMARY KEY,
   value JSONB
 );
-
 -- ═══════════════════════════════════════════════════
 --  Row Level Security
 -- ═══════════════════════════════════════════════════
-
 -- sentences — public read, admin write
 ALTER TABLE public.sentences ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read sentences" ON public.sentences;
@@ -138,49 +125,42 @@ DROP POLICY IF EXISTS "Auth insert sentences" ON public.sentences;
 CREATE POLICY "Auth insert sentences"  ON public.sentences FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "Auth update sentences" ON public.sentences;
 CREATE POLICY "Auth update sentences"  ON public.sentences FOR UPDATE USING (auth.uid() = created_by);
-
 -- words — public read
 ALTER TABLE public.words ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read words" ON public.words;
 CREATE POLICY "Public read words"     ON public.words FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Auth insert words" ON public.words;
 CREATE POLICY "Auth insert words"     ON public.words FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
 -- dialogues — public read
 ALTER TABLE public.dialogues ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read dialogues" ON public.dialogues;
 CREATE POLICY "Public read dialogues" ON public.dialogues FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Auth insert dialogues" ON public.dialogues;
 CREATE POLICY "Auth insert dialogues" ON public.dialogues FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
 -- grammar_exercises — public read
 ALTER TABLE public.grammar_exercises ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read grammar" ON public.grammar_exercises;
 CREATE POLICY "Public read grammar"   ON public.grammar_exercises FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Auth insert grammar" ON public.grammar_exercises;
 CREATE POLICY "Auth insert grammar"   ON public.grammar_exercises FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
 -- long_texts — public read
 ALTER TABLE public.long_texts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read texts" ON public.long_texts;
 CREATE POLICY "Public read texts"     ON public.long_texts FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Auth insert texts" ON public.long_texts;
 CREATE POLICY "Auth insert texts"     ON public.long_texts FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-
 -- profiles — own row only
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Own profile read" ON public.profiles;
 CREATE POLICY "Own profile read"     ON public.profiles FOR SELECT USING (auth.uid() = id);
 DROP POLICY IF EXISTS "Own profile write" ON public.profiles;
 CREATE POLICY "Own profile write"    ON public.profiles FOR ALL   USING (auth.uid() = id);
-
 -- user_completed_sentences — own rows only
 ALTER TABLE public.user_completed_sentences ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Own progress read" ON public.user_completed_sentences;
 CREATE POLICY "Own progress read"    ON public.user_completed_sentences FOR SELECT USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Own progress insert" ON public.user_completed_sentences;
 CREATE POLICY "Own progress insert"  ON public.user_completed_sentences FOR INSERT WITH CHECK (auth.uid() = user_id);
-
 -- vocabulary_bank — own rows only
 ALTER TABLE public.vocabulary_bank ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Own vocab read" ON public.vocabulary_bank;
@@ -191,7 +171,6 @@ DROP POLICY IF EXISTS "Own vocab update" ON public.vocabulary_bank;
 CREATE POLICY "Own vocab update"     ON public.vocabulary_bank FOR UPDATE USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Own vocab delete" ON public.vocabulary_bank;
 CREATE POLICY "Own vocab delete"     ON public.vocabulary_bank FOR DELETE USING (auth.uid() = user_id);
-
 -- app_settings — public read
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read settings" ON public.app_settings;

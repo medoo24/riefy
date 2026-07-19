@@ -71,13 +71,16 @@ export default function DialoguesPage({ mode = 'language' }: DialoguesPageProps)
         </p>
       </div>
 
-      <div className="level-tabs">
-        {levelsList.map(l => (
-          <button key={l} className={`level-tab${level === l ? ` active-${l}` : ''}`} onClick={() => setLevel(l)}>
-            {l === 'all' ? (isMedical ? 'All' : 'Alle') : l}
-          </button>
-        ))}
-      </div>
+      {/* Level tabs (only shown in Medical Mode for concept difficulty filter) */}
+      {isMedical && (
+        <div className="level-tabs">
+          {levelsList.map(l => (
+            <button key={l} className={`level-tab${level === l ? ` active-${l}` : ''}`} onClick={() => setLevel(l)}>
+              {l === 'all' ? 'All' : l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading && <div className="spinner" />}
 

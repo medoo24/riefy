@@ -16,8 +16,15 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return
+    let ignore = false
     supabase.from('profiles').select('display_name').eq('id', user.id).single()
-      .then(({ data }) => { if (data) setDisplayName(data.display_name ?? '') })
+      .then(({ data }) => {
+        if (ignore) return
+        if (data) setDisplayName(data.display_name ?? '')
+      })
+    return () => {
+      ignore = true
+    }
   }, [user])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2000) }

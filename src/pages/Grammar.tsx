@@ -58,22 +58,25 @@ export default function GrammarPage({ mode = 'language' }: GrammarPageProps) {
         </p>
       </div>
 
-      <div className="level-tabs">
-        {levelsList.map(l => (
-          <button 
-            key={l} 
-            className={`level-tab${level === l ? ` active-${l}` : ''}`} 
-            onClick={() => { 
-              setLevel(l)
-              setIdx(0)
-              setSelected(null)
-              setScore({ correct: 0, total: 0 }) 
-            }}
-          >
-            {l === 'all' ? (isMedical ? 'All' : 'Alle') : l}
-          </button>
-        ))}
-      </div>
+      {/* Level tabs (only shown in Medical Mode for concept difficulty filter) */}
+      {isMedical && (
+        <div className="level-tabs">
+          {levelsList.map(l => (
+            <button 
+              key={l} 
+              className={`level-tab${level === l ? ` active-${l}` : ''}`} 
+              onClick={() => { 
+                setLevel(l)
+                setIdx(0)
+                setSelected(null)
+                setScore({ correct: 0, total: 0 }) 
+              }}
+            >
+              {l === 'all' ? 'All' : l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {score.total > 0 && (
         <div className="stats-row" style={{ marginBottom: 20 }}>

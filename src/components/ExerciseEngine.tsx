@@ -246,7 +246,8 @@ export default function ExerciseEngine({
     if (item && mode === 'mcq') {
       setMcqOptions(generateMcqOptions(item.text))
     }
-  }, [idx, mode, item?.id, generateMcqOptions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, mode, item?.id])
 
   // Reset rewarded indices when items change
   useEffect(() => {

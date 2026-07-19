@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import { useAuth } from './AuthContext'
 import { supabase } from '../lib/supabaseClient'
 
@@ -50,6 +50,15 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const userRef = useRef(user)
   userRef.current = user
 
+  const xpRef = useRef(xp)
+  xpRef.current = xp
+
+  const streakDaysRef = useRef(streakDays)
+  streakDaysRef.current = streakDays
+
+  const totalStudyMinutesRef = useRef(totalStudyMinutes)
+  totalStudyMinutesRef.current = totalStudyMinutes
+
   // Compute Level details
   const getLevelName = (xpVal: number) => {
     const matched = [...LEVEL_THRESHOLDS].reverse().find(t => xpVal >= t.minXp)
@@ -72,7 +81,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       }
 
       const diffTime = Math.abs(new Date(todayStr).getTime() - new Date(lastStudyStr).getTime())
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
 
       if (diffDays === 1) {
         // Consecutive day
@@ -86,8 +95,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     checkStreak()
   }, [])
 
-  // Sync with Supabase
-  const syncCloud = async () => {
+  // Sync with Supabase (wrapped in useCallback and uses refs to prevent stale closures)
+  const syncCloud = useCallback(async () => {
     const currentUser = userRef.current
     if (!currentUser) return
 
@@ -104,19 +113,19 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      let targetXp = xp
-      let targetStreak = streakDays
-      let targetMinutes = totalStudyMinutes
+      let targetXp = xpRef.current
+      let targetStreak = streakDaysRef.current
+      let targetMinutes = totalStudyMinutesRef.current
       const todayDateStr = new Date().toISOString().split('T')[0]
 
       if (cloudData) {
         // Merge strategy: choose maximum values to avoid progress loss
-        targetXp = Math.max(xp, cloudData.xp || 0)
-        targetStreak = Math.max(streakDays, cloudData.streak_days || 0)
-        targetMinutes = Math.max(totalStudyMinutes, cloudData.total_study_minutes || 0)
+        targetXp = Math.max(xpRef.current, cloudData.xp || 0)
+        targetStreak = Math.max(streakDaysRef.current, cloudData.streak_days || 0)
+        targetMinutes = Math.max(totalStudyMinutesRef.current, cloudData.total_study_minutes || 0)
 
         // If cloud had more progress, sync it locally
-        if (targetXp > xp || targetStreak > streakDays || targetMinutes > totalStudyMinutes) {
+        if (targetXp > xpRef.current || targetStreak > streakDaysRef.current || targetMinutes > totalStudyMinutesRef.current) {
           setXp(targetXp)
           setStreakDays(targetStreak)
           setTotalStudyMinutes(targetMinutes)
@@ -147,14 +156,14 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.warn('Network sync failed. Progress will keep saving locally.', e)
     }
-  }
+  }, [])
 
   // Handle Auth Changes
   useEffect(() => {
     if (user) {
       syncCloud()
     }
-  }, [user])
+  }, [user, syncCloud])
 
   // Active Session Study Timer
   useEffect(() => {
@@ -169,22 +178,25 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
             return val
           })
           setTodayStudyMinutes(m => m + 1)
-          // Autosave/sync study minutes every minute
-          syncCloud()
+          // Autosave/sync study minutes every minute, deferred to avoid state updates during render
+          setTimeout(() => {
+            syncCloud()
+          }, 0)
         }
         return next
       })
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [])
+  }, [syncCloud])
 
   // Reward XP function
   const addXp = async (amount: number) => {
     if (amount <= 0) return
 
-    const previousLevel = [...LEVEL_THRESHOLDS].reverse().find(t => xp >= t.minXp)?.level || 1
-    const nextXp = xp + amount
+    const currentXp = xpRef.current
+    const previousLevel = [...LEVEL_THRESHOLDS].reverse().find(t => currentXp >= t.minXp)?.level || 1
+    const nextXp = currentXp + amount
 
     setXp(nextXp)
     localStorage.setItem('riefy_xp', String(nextXp))
@@ -192,14 +204,14 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     // Update study date and streak
     const todayStr = new Date().toDateString()
     const lastStudyStr = localStorage.getItem('riefy_last_study_date')
-    let nextStreak = streakDays
+    let nextStreak = streakDaysRef.current
 
     if (lastStudyStr !== todayStr) {
       if (lastStudyStr) {
         const diffTime = Math.abs(new Date(todayStr).getTime() - new Date(lastStudyStr).getTime())
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
         if (diffDays === 1) {
-          nextStreak = streakDays + 1
+          nextStreak = streakDaysRef.current + 1
         } else {
           nextStreak = 1
         }
@@ -218,18 +230,19 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Push update to cloud if logged in
-    if (user) {
+    const currentUser = userRef.current
+    if (currentUser) {
       try {
         await supabase.from('user_progress').upsert({
-          user_id: user.id,
+          user_id: currentUser.id,
           xp: nextXp,
           streak_days: nextStreak,
-          total_study_minutes: totalStudyMinutes,
+          total_study_minutes: totalStudyMinutesRef.current,
           last_study_date: new Date().toISOString().split('T')[0],
           updated_at: new Date().toISOString()
         })
 
-        const { data: rankData } = await supabase.rpc('get_user_rank', { target_user_id: user.id })
+        const { data: rankData } = await supabase.rpc('get_user_rank', { target_user_id: currentUser.id })
         if (rankData) {
           setRank(rankData.rank || 1)
           setTotalUsers(rankData.total_users || 1)

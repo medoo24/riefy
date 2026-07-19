@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Sentence, CEFRLevel } from '../types'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,6 +14,7 @@ export function useSentences(
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let ignore = false
     setLoading(true)
     let q = supabase
       .from('sentences')
@@ -37,10 +38,15 @@ export function useSentences(
     }
 
     q.then(({ data, error }) => {
+      if (ignore) return
       if (error) setError(error.message)
       else setSentences(data ?? [])
       setLoading(false)
     })
+
+    return () => {
+      ignore = true
+    }
   }, [level, mode, chapter, lesson])
 
   return { sentences, loading, error }
@@ -56,6 +62,7 @@ export function useWords(
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let ignore = false
     setLoading(true)
     let q = supabase
       .from('words')
@@ -77,7 +84,15 @@ export function useWords(
       q = q.eq('lesson', lesson)
     }
 
-    q.then(({ data }) => { setWords(data ?? []); setLoading(false) })
+    q.then(({ data }) => {
+      if (ignore) return
+      setWords(data ?? [])
+      setLoading(false)
+    })
+
+    return () => {
+      ignore = true
+    }
   }, [level, mode, chapter, lesson])
 
   return { words, loading }
@@ -93,6 +108,7 @@ export function useDialogues(
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let ignore = false
     setLoading(true)
     let q = supabase
       .from('dialogues')
@@ -114,7 +130,15 @@ export function useDialogues(
       q = q.eq('lesson', lesson)
     }
 
-    q.then(({ data }) => { setDialogues(data ?? []); setLoading(false) })
+    q.then(({ data }) => {
+      if (ignore) return
+      setDialogues(data ?? [])
+      setLoading(false)
+    })
+
+    return () => {
+      ignore = true
+    }
   }, [level, mode, chapter, lesson])
 
   return { dialogues, loading }
@@ -130,6 +154,7 @@ export function useLongTexts(
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let ignore = false
     setLoading(true)
     let q = supabase
       .from('long_texts')
@@ -151,7 +176,15 @@ export function useLongTexts(
       q = q.eq('lesson', lesson)
     }
 
-    q.then(({ data }) => { setTexts(data ?? []); setLoading(false) })
+    q.then(({ data }) => {
+      if (ignore) return
+      setTexts(data ?? [])
+      setLoading(false)
+    })
+
+    return () => {
+      ignore = true
+    }
   }, [level, mode, chapter, lesson])
 
   return { texts, loading }
@@ -167,6 +200,7 @@ export function useGrammarExercises(
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let ignore = false
     setLoading(true)
     let q = supabase
       .from('grammar_exercises')
@@ -188,7 +222,15 @@ export function useGrammarExercises(
       q = q.eq('lesson', lesson)
     }
 
-    q.then(({ data }) => { setExercises(data ?? []); setLoading(false) })
+    q.then(({ data }) => {
+      if (ignore) return
+      setExercises(data ?? [])
+      setLoading(false)
+    })
+
+    return () => {
+      ignore = true
+    }
   }, [level, mode, chapter, lesson])
 
   return { exercises, loading }
@@ -215,12 +257,14 @@ export function useVocabularyBank() {
     source: string; term: string; translation: string; level: string; language?: string
   }) => {
     if (!user) return
-    const { data: existing } = await supabase
+    const { data: existingList } = await supabase
       .from('vocabulary_bank')
       .select('id, times_seen')
       .eq('user_id', user.id)
       .eq('term', entry.term)
-      .single()
+      .limit(1)
+
+    const existing = existingList && existingList.length > 0 ? existingList[0] : null
 
     if (existing) {
       await supabase.from('vocabulary_bank').update({
@@ -250,26 +294,34 @@ export function useUserProgress() {
   const { user } = useAuth()
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
 
+  const completedIdsRef = useRef(completedIds)
+  completedIdsRef.current = completedIds
+
   useEffect(() => {
     if (!user) return
+    let ignore = false
     supabase
-      .from('user_progress')
+      .from('user_completed_sentences')
       .select('sentence_id')
       .eq('user_id', user.id)
       .then(({ data }) => {
+        if (ignore) return
         setCompletedIds(new Set((data ?? []).map((r: any) => r.sentence_id)))
       })
+    return () => {
+      ignore = true
+    }
   }, [user])
 
   const markComplete = useCallback(async (sentenceId: string) => {
-    if (!user || completedIds.has(sentenceId)) return
-    await supabase.from('user_progress').insert({
+    if (!user || completedIdsRef.current.has(sentenceId)) return
+    await supabase.from('user_completed_sentences').insert({
       user_id: user.id,
       sentence_id: sentenceId,
       completed_at: new Date().toISOString(),
     })
     setCompletedIds(prev => new Set([...prev, sentenceId]))
-  }, [user, completedIds])
+  }, [user])
 
   return { completedIds, markComplete }
 }
