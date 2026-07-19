@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGrammarExercises } from '../hooks/useData'
-import { CheckCircle2, XCircle, ChevronRight } from 'lucide-react'
+import { CheckCircle2, XCircle, ChevronRight, Volume2, Square } from 'lucide-react'
 import type { CEFRLevel } from '../types'
 
 const LEVELS: (CEFRLevel | 'all')[] = ['all', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']
@@ -23,6 +23,55 @@ export default function GrammarPage({ mode = 'language' }: GrammarPageProps) {
   const [idx, setIdx] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
+  const [audioPlaying, setAudioPlaying] = useState(false)
+
+  const stopAudio = () => {
+    window.speechSynthesis.cancel()
+    setAudioPlaying(false)
+  }
+
+  const playAudio = (ex: any) => {
+    window.speechSynthesis.cancel()
+    if (audioPlaying) {
+      setAudioPlaying(false)
+      return
+    }
+
+    const questionText = ex.question ?? ex.frage ?? ex.stem ?? ''
+    let fullSpeech = questionText
+    
+    if (isMedical) {
+      const options = getOptions(ex)
+      const letters = ['A', 'B', 'C', 'D']
+      const optionsSpeech = options.map((opt, i) => `Option ${letters[i] || (i + 1)}: ${opt}`).join('. ')
+      fullSpeech = `Question: ${questionText}. ${optionsSpeech}`
+    }
+
+    const utterance = new SpeechSynthesisUtterance(fullSpeech)
+    utterance.lang = isMedical ? 'en-US' : 'de-DE'
+
+    if (isMedical) {
+      const allVoices = window.speechSynthesis.getVoices()
+      const ukFemale = allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google') && 
+        v.name.toLowerCase().includes('uk') && 
+        v.name.toLowerCase().includes('female')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en')
+      )
+      if (ukFemale) utterance.voice = ukFemale
+    }
+
+    utterance.onstart = () => setAudioPlaying(true)
+    utterance.onend = () => setAudioPlaying(false)
+    utterance.onerror = () => setAudioPlaying(false)
+
+    window.speechSynthesis.speak(utterance)
+  }
 
   const exercise = exercises[idx]
 
@@ -34,6 +83,7 @@ export default function GrammarPage({ mode = 'language' }: GrammarPageProps) {
   }
 
   const handleNext = () => {
+    stopAudio()
     setIdx(i => Math.min(i + 1, exercises.length - 1))
     setSelected(null)
   }
@@ -66,6 +116,7 @@ export default function GrammarPage({ mode = 'language' }: GrammarPageProps) {
               key={l} 
               className={`level-tab${level === l ? ` active-${l}` : ''}`} 
               onClick={() => { 
+                stopAudio()
                 setLevel(l)
                 setIdx(0)
                 setSelected(null)
@@ -108,7 +159,17 @@ export default function GrammarPage({ mode = 'language' }: GrammarPageProps) {
           {/* Progress */}
           <div className="flex items-center justify-between mb-4" style={{ marginBottom: 16 }}>
             <span className="text-xs text-muted-2">{idx + 1} / {exercises.length}</span>
-            <span className={`level-badge level-${exercise.level}`}>{exercise.level}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="btn-icon"
+                onClick={() => playAudio(exercise)}
+                style={{ padding: '4px' }}
+                title="Play Audio"
+              >
+                {audioPlaying ? <Square size={14} /> : <Volume2 size={14} />}
+              </button>
+              <span className={`level-badge level-${exercise.level}`}>{exercise.level}</span>
+            </div>
           </div>
 
           {/* Topic */}

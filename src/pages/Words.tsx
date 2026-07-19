@@ -48,10 +48,27 @@ export default function WordsPage({ mode = 'language' }: WordsPageProps) {
     showToast(isMedical ? 'Saved! (+5 XP) ✓' : 'Gespeichert! (+5 XP) ✓')
   }
 
-  const playAudio = (wordText: string) => {
+  const playAudio = (wordText: string, definitionText: string) => {
     window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(wordText)
+    const textToSpeak = isMedical ? `Term: ${wordText}. Definition: ${definitionText}` : wordText
+    const utterance = new SpeechSynthesisUtterance(textToSpeak)
     utterance.lang = isMedical ? 'en-US' : 'de-DE'
+    
+    if (isMedical) {
+      const allVoices = window.speechSynthesis.getVoices()
+      const ukFemale = allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google') && 
+        v.name.toLowerCase().includes('uk') && 
+        v.name.toLowerCase().includes('female')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en')
+      )
+      if (ukFemale) utterance.voice = ukFemale
+    }
     window.speechSynthesis.speak(utterance)
   }
 
@@ -114,7 +131,7 @@ export default function WordsPage({ mode = 'language' }: WordsPageProps) {
                 {translation}
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
-                <button className="btn-icon" style={{ padding: '5px' }} onClick={() => playAudio(term)} title="Speak term">
+                <button className="btn-icon" style={{ padding: '5px' }} onClick={() => playAudio(term, translation)} title="Speak term">
                   <Volume2 size={14} />
                 </button>
                 <button className="btn-icon" style={{ padding: '5px' }} onClick={() => handleSave(word)} title="Save word">

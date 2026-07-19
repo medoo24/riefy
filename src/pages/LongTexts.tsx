@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLongTexts } from '../hooks/useData'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Volume2, Square } from 'lucide-react'
 import { useLearningPath } from '../contexts/LearningPathContext'
 import { useProgress } from '../contexts/ProgressContext'
 import type { CEFRLevel } from '../types'
@@ -23,6 +23,7 @@ export default function LongTextsPage({ mode = 'language' }: LongTextsPageProps)
   const [showTranslation, setShowTranslation] = useState<Record<string, boolean>>({})
   const [rewardedIds, setRewardedIds] = useState<Record<string, boolean>>({})
   const [toast, setToast] = useState('')
+  const [audioPlayingId, setAudioPlayingId] = useState<string | null>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2000) }
 
@@ -36,6 +37,40 @@ export default function LongTextsPage({ mode = 'language' }: LongTextsPageProps)
       }
       return { ...prev, [id]: nextShow }
     })
+  }
+
+  const playAudio = (id: string, bodyText: string, titleText: string) => {
+    window.speechSynthesis.cancel()
+    if (audioPlayingId === id) {
+      setAudioPlayingId(null)
+      return
+    }
+
+    const fullSpeech = isMedical ? `Case Study: ${titleText}. ${bodyText}` : bodyText
+    const utterance = new SpeechSynthesisUtterance(fullSpeech)
+    utterance.lang = isMedical ? 'en-US' : 'de-DE'
+
+    if (isMedical) {
+      const allVoices = window.speechSynthesis.getVoices()
+      const ukFemale = allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google') && 
+        v.name.toLowerCase().includes('uk') && 
+        v.name.toLowerCase().includes('female')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en')
+      )
+      if (ukFemale) utterance.voice = ukFemale
+    }
+
+    utterance.onstart = () => setAudioPlayingId(id)
+    utterance.onend = () => setAudioPlayingId(null)
+    utterance.onerror = () => setAudioPlayingId(null)
+
+    window.speechSynthesis.speak(utterance)
   }
 
   return (
@@ -88,7 +123,11 @@ export default function LongTextsPage({ mode = 'language' }: LongTextsPageProps)
           return (
             <div key={id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <button
-                onClick={() => setOpenId(isOpen ? null : id)}
+                onClick={() => {
+                  window.speechSynthesis.cancel()
+                  setAudioPlayingId(null)
+                  setOpenId(isOpen ? null : id)
+                }}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer', gap: 12,
@@ -121,17 +160,28 @@ export default function LongTextsPage({ mode = 'language' }: LongTextsPageProps)
                     {body}
                   </p>
 
-                  {transText && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button
                       className="btn btn-ghost btn-sm"
-                      onClick={() => handleToggleTranslation(id)}
+                      onClick={() => playAudio(id, body, title)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                     >
-                      {showTranslation[id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      {showTranslation[id] 
-                        ? (isMedical ? 'Hide explanation' : 'Übersetzung ausblenden') 
-                        : (isMedical ? 'Show explanation' : 'Übersetzung anzeigen')}
+                      {audioPlayingId === id ? <Square size={14} /> : <Volume2 size={14} />}
+                      {audioPlayingId === id ? (isMedical ? 'Stop' : 'Stoppen') : (isMedical ? 'Listen' : 'Anhören')}
                     </button>
-                  )}
+
+                    {transText && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleToggleTranslation(id)}
+                      >
+                        {showTranslation[id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {showTranslation[id] 
+                          ? (isMedical ? 'Hide explanation' : 'Übersetzung ausblenden') 
+                          : (isMedical ? 'Show explanation' : 'Übersetzung anzeigen')}
+                      </button>
+                    )}
+                  </div>
 
                   {showTranslation[id] && transText && (
                     <div style={{

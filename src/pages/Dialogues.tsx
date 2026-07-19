@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useDialogues } from '../hooks/useData'
-import { ChevronDown, ChevronUp, BookmarkPlus } from 'lucide-react'
+import { ChevronDown, ChevronUp, BookmarkPlus, Volume2, Square } from 'lucide-react'
 import { useVocabularyBank } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
 import { useLearningPath } from '../contexts/LearningPathContext'
@@ -26,6 +26,7 @@ export default function DialoguesPage({ mode = 'language' }: DialoguesPageProps)
   const [openId, setOpenId] = useState<string | null>(null)
   const [rewardedIds, setRewardedIds] = useState<Record<string, boolean>>({})
   const [toast, setToast] = useState('')
+  const [linePlayingId, setLinePlayingId] = useState<string | null>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2000) }
 
@@ -40,6 +41,39 @@ export default function DialoguesPage({ mode = 'language' }: DialoguesPageProps)
         showToast(isMedical ? 'Completed! (+15 XP) ✓' : 'Abgeschlossen! (+15 XP) ✓')
       }
     }
+  }
+
+  const playLineAudio = (lineId: string, text: string) => {
+    window.speechSynthesis.cancel()
+    if (linePlayingId === lineId) {
+      setLinePlayingId(null)
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = isMedical ? 'en-US' : 'de-DE'
+
+    if (isMedical) {
+      const allVoices = window.speechSynthesis.getVoices()
+      const ukFemale = allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google') && 
+        v.name.toLowerCase().includes('uk') && 
+        v.name.toLowerCase().includes('female')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        v.name.toLowerCase().includes('google')
+      ) || allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en')
+      )
+      if (ukFemale) utterance.voice = ukFemale
+    }
+
+    utterance.onstart = () => setLinePlayingId(lineId)
+    utterance.onend = () => setLinePlayingId(null)
+    utterance.onerror = () => setLinePlayingId(null)
+
+    window.speechSynthesis.speak(utterance)
   }
 
   const handleSave = async (dialogue: any) => {
@@ -104,7 +138,11 @@ export default function DialoguesPage({ mode = 'language' }: DialoguesPageProps)
             <div key={id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {/* Header */}
               <button
-                onClick={() => handleToggleOpen(id)}
+                onClick={() => {
+                  window.speechSynthesis.cancel()
+                  setLinePlayingId(null)
+                  handleToggleOpen(id)
+                }}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center',
                   justifyContent: 'space-between', padding: '18px 24px',
@@ -141,6 +179,8 @@ export default function DialoguesPage({ mode = 'language' }: DialoguesPageProps)
                       const transText = isLtrTrans 
                         ? (line.translation_en ?? line.en ?? line.translation ?? '')
                         : (line.translation_ar ?? line.ar ?? '')
+                      const lineId = `${id}_${li}`
+                      const targetText = line.german ?? line.text ?? line.de ?? ''
 
                       return (
                         <div key={li} className="dialogue-line" style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
@@ -148,8 +188,15 @@ export default function DialoguesPage({ mode = 'language' }: DialoguesPageProps)
                             {line.speaker ?? line.role ?? `P${li + 1}`}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div className="dialogue-german" style={{ fontFamily: 'Inter, sans-serif', color: 'var(--text-0)' }}>
-                              {line.german ?? line.text ?? line.de ?? ''}
+                            <div className="dialogue-german" style={{ fontFamily: 'Inter, sans-serif', color: 'var(--text-0)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span>{targetText}</span>
+                              <button
+                                onClick={() => playLineAudio(lineId, targetText)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'inline-flex', color: 'var(--text-3)' }}
+                                title="Play Audio"
+                              >
+                                {linePlayingId === lineId ? <Square size={12} /> : <Volume2 size={12} />}
+                              </button>
                             </div>
                             {transText && (
                               <div
