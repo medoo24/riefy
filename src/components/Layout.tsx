@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   BookOpen, PenLine, Mic2, AlignLeft, Brain,
   BookMarked, User, LogOut, Sun, Moon, Menu, Stethoscope,
-  GraduationCap, Trophy, Award, Clock, Hourglass, Info
+  GraduationCap, Trophy, Award, Clock, Hourglass, Info, X
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLearningPath } from '../contexts/LearningPathContext'
 import { useProgress } from '../contexts/ProgressContext'
+import { supabase } from '../lib/supabaseClient'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -74,15 +75,105 @@ export default function Layout({ children, theme, onToggleTheme }: LayoutProps) 
     navigate('/auth')
   }
 
+  // Load custom profile information for the header badge
+  const [profileEmoji, setProfileEmoji] = useState('🩺')
+  const [profileColor, setProfileColor] = useState('#fb923c')
+  const [profileName, setProfileName] = useState('')
+
+  useEffect(() => {
+    if (!user) return
+    let ignore = false
+    supabase.from('profiles').select('display_name, avatar_url, native_language').eq('id', user.id).single()
+      .then(({ data }) => {
+        if (ignore) return
+        if (data) {
+          setProfileName(data.display_name ?? '')
+          setProfileEmoji(data.avatar_url ?? '🩺')
+          setProfileColor(data.native_language ?? '#fb923c')
+        }
+      })
+    return () => { ignore = true }
+  }, [user])
+
+  // Also listen for profile changes to reload header badge instantly
+  useEffect(() => {
+    const handleProfileReload = () => {
+      if (!user) return
+      supabase.from('profiles').select('display_name, avatar_url, native_language').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data) {
+            setProfileName(data.display_name ?? '')
+            setProfileEmoji(data.avatar_url ?? '🩺')
+            setProfileColor(data.native_language ?? '#fb923c')
+          }
+        })
+    }
+    window.addEventListener('riefy_mode_change', handleProfileReload)
+    return () => {
+      window.removeEventListener('riefy_mode_change', handleProfileReload)
+    }
+  }, [user])
+
   const sidebarContent = (
     <>
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🇩🇪</div>
-        <div>
-          <div className="sidebar-logo-text">Riefy</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-3)', fontWeight: 500 }}>Smart Learning</div>
+      {user ? (
+        <div 
+          onClick={() => { setSidebarOpen(false); navigate('/profile'); }}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 10, 
+            cursor: 'pointer',
+            padding: '12px 14px',
+            background: 'var(--bg-3)',
+            borderRadius: 'var(--radius)',
+            border: `1.5px solid ${profileColor}`,
+            boxShadow: `0 2px 10px ${profileColor}15`,
+            margin: '16px 14px'
+          }}
+          title="Profil ansehen"
+        >
+          {/* Avatar frame */}
+          <div style={{
+            width: 38,
+            height: 38,
+            borderRadius: '50%',
+            background: 'var(--bg-2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.4rem',
+            border: `2px solid ${profileColor}`,
+            boxShadow: `0 0 10px ${profileColor}33`,
+            flexShrink: 0
+          }}>
+            {profileEmoji}
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ 
+              fontSize: '0.85rem', 
+              fontWeight: 700, 
+              color: 'var(--text-0)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              {profileName || user.email?.split('@')[0] || 'User'}
+            </div>
+            <div style={{ fontSize: '0.62rem', color: profileColor, fontWeight: 700, textTransform: 'uppercase' }}>
+              Student ID Card
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">🇩🇪</div>
+          <div>
+            <div className="sidebar-logo-text">Riefy</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-3)', fontWeight: 500 }}>Smart Learning</div>
+          </div>
+        </div>
+      )}
 
       {/* Language Learning Mode */}
       <div className="nav-section" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 14 }}>

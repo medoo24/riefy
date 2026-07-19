@@ -60,6 +60,7 @@ export function LearningPathProvider({ children }: { children: React.ReactNode }
   const setMode = (newMode: LearningMode) => {
     setModeState(newMode)
     localStorage.setItem('riefy_curr_mode', newMode)
+    window.dispatchEvent(new Event('riefy_mode_change'))
     
     // Load or set default chapter/lesson for that mode
     const savedCh = localStorage.getItem(`riefy_curr_chapter_${newMode}`)

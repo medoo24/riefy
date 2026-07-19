@@ -19,14 +19,16 @@ interface ProgressContextType {
 
 const ProgressContext = createContext<ProgressContextType | undefined>(undefined)
 
-// Level thresholds: XP required to reach each level
-// level 1: 0-100 XP, level 2: 100-300 XP, level 3: 300-600 XP, level 4: 600-1000 XP, level 5: 1000+ XP
+// Level thresholds: XP required to reach each level (8 Milestones)
 const LEVEL_THRESHOLDS = [
-  { level: 1, minXp: 0, name: 'Anfänger (Novice)' },
-  { level: 2, minXp: 100, name: 'Fortgeschritten (Learner)' },
-  { level: 3, minXp: 300, name: 'Spezialist (Expert)' },
-  { level: 4, minXp: 600, name: 'Meister (Master)' },
-  { level: 5, minXp: 1000, name: 'Legende (Legend)' }
+  { level: 1, minXp: 0, name: 'Anfänger', medicalName: 'Pre-med Student' },
+  { level: 2, minXp: 100, name: 'Novize', medicalName: 'Medical Student' },
+  { level: 3, minXp: 300, name: 'Lernender', medicalName: 'Cardiology Intern' },
+  { level: 4, minXp: 600, name: 'Fortgeschrittener', medicalName: 'Cardiology Resident' },
+  { level: 5, minXp: 1000, name: 'Kenner', medicalName: 'Cardiology Fellow' },
+  { level: 6, minXp: 1500, name: 'Könner', medicalName: 'Cardiology Specialist' },
+  { level: 7, minXp: 2100, name: 'Experte', medicalName: 'Attending Cardiologist' },
+  { level: 8, minXp: 2800, name: 'Großmeister', medicalName: 'Chief of Cardiology' }
 ]
 
 export function ProgressProvider({ children }: { children: React.ReactNode }) {
@@ -45,6 +47,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const [rank, setRank] = useState<number>(1)
   const [totalUsers, setTotalUsers] = useState<number>(1)
   const [showLevelUp, setShowLevelUp] = useState<boolean>(false)
+  
+  // Track active mode to dynamically switch level names
+  const [activeMode, setActiveMode] = useState(() => localStorage.getItem('riefy_curr_mode') || 'language')
   const [currentLevelName, setCurrentLevelName] = useState<string>('Anfänger')
 
   const userRef = useRef(user)
@@ -59,15 +64,29 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const totalStudyMinutesRef = useRef(totalStudyMinutes)
   totalStudyMinutesRef.current = totalStudyMinutes
 
-  // Compute Level details
-  const getLevelName = (xpVal: number) => {
+  // Compute Level details dynamically
+  const getLevelName = (xpVal: number, mode: string) => {
     const matched = [...LEVEL_THRESHOLDS].reverse().find(t => xpVal >= t.minXp)
-    return matched ? matched.name : 'Anfänger'
+    if (!matched) return mode === 'medical' ? 'Pre-med Student' : 'Anfänger'
+    return mode === 'medical' ? matched.medicalName : matched.name
   }
 
+  // Listen to mode switches to update badge labels instantly
   useEffect(() => {
-    setCurrentLevelName(getLevelName(xp))
+    const handleModeChange = () => {
+      const currentMode = localStorage.getItem('riefy_curr_mode') || 'language'
+      setActiveMode(currentMode)
+      setCurrentLevelName(getLevelName(xp, currentMode))
+    }
+    window.addEventListener('riefy_mode_change', handleModeChange)
+    return () => {
+      window.removeEventListener('riefy_mode_change', handleModeChange)
+    }
   }, [xp])
+
+  useEffect(() => {
+    setCurrentLevelName(getLevelName(xp, activeMode))
+  }, [xp, activeMode])
 
   // Streak checking
   useEffect(() => {

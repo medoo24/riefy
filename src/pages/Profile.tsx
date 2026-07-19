@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useVocabularyBank, useUserProgress } from '../hooks/useData'
+import { useProgress } from '../contexts/ProgressContext'
 import { supabase } from '../lib/supabaseClient'
-import { User, Save, LogOut, Dices, Sparkles } from 'lucide-react'
+import { User, Save, LogOut, Dices, Sparkles, Check, Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 const EMOJIS = ['🩺', '👨‍⚕️', '👩‍⚕️', '🧠', '🦁', '👑', '⚡', '🚀', '🎓', '⚕️', '❤️', '🔥']
@@ -13,10 +14,22 @@ const FRAMES = [
   { name: 'Platinum', color: '#3b82f6', desc: 'Legende Tier' }
 ]
 
+const MILESTONES = [
+  { level: 1, minXp: 0, name: 'Anfänger', medicalName: 'Pre-med Student' },
+  { level: 2, minXp: 100, name: 'Novize', medicalName: 'Medical Student' },
+  { level: 3, minXp: 300, name: 'Lernender', medicalName: 'Cardiology Intern' },
+  { level: 4, minXp: 600, name: 'Fortgeschrittener', medicalName: 'Cardiology Resident' },
+  { level: 5, minXp: 1000, name: 'Kenner', medicalName: 'Cardiology Fellow' },
+  { level: 6, minXp: 1500, name: 'Könner', medicalName: 'Cardiology Specialist' },
+  { level: 7, minXp: 2100, name: 'Experte', medicalName: 'Attending Cardiologist' },
+  { level: 8, minXp: 2800, name: 'Großmeister', medicalName: 'Chief of Cardiology' }
+]
+
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
   const { vocab } = useVocabularyBank()
   const { completedIds } = useUserProgress()
+  const { xp } = useProgress()
   const navigate = useNavigate()
   
   const [displayName, setDisplayName] = useState('')
@@ -59,6 +72,8 @@ export default function ProfilePage() {
       native_language: frameColor
     })
     setSaving(false)
+    // Dispatch event to refresh layout avatar
+    window.dispatchEvent(new Event('riefy_mode_change'))
     showToast(frameColor === '#3b82f6' ? 'Profile saved! Legend frame active! 👑' : 'Profile saved successfully! ✓')
   }
 
@@ -73,11 +88,21 @@ export default function ProfilePage() {
   const knownCount = vocab.filter(v => v.status === 'known').length
   const selectedFrame = FRAMES.find(f => f.color === frameColor) || FRAMES[0]
 
+  // Find next milestone details
+  const currentMilestoneIndex = [...MILESTONES].reverse().findIndex(m => xp >= m.minXp)
+  const activeMilestoneIdx = currentMilestoneIndex !== -1 ? (MILESTONES.length - 1 - currentMilestoneIndex) : 0
+  const nextMilestone = activeMilestoneIdx < MILESTONES.length - 1 ? MILESTONES[activeMilestoneIdx + 1] : null
+  const currentMilestone = MILESTONES[activeMilestoneIdx]
+  
+  const xpInCurrentLevel = xp - currentMilestone.minXp
+  const xpNeededForNext = nextMilestone ? (nextMilestone.minXp - currentMilestone.minXp) : 1
+  const levelProgress = Math.min((xpInCurrentLevel / xpNeededForNext) * 100, 100)
+
   return (
     <main className="page-container">
       <div className="page-header"><h1>Profil & Anpassung</h1></div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 24 }}>
         
         {/* Visual Card Preview Card */}
         <div className="card" style={{
@@ -120,12 +145,23 @@ export default function ProfilePage() {
             background: `${frameColor}15`,
             padding: '2px 10px',
             borderRadius: 12,
-            marginBottom: 20,
+            marginBottom: 12,
             display: 'flex',
             alignItems: 'center',
             gap: 4
           }}>
             <Sparkles size={11} /> {selectedFrame.name} Member
+          </div>
+
+          {/* XP Progress Bar */}
+          <div style={{ width: '100%', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 4 }}>
+              <span>Lvl {activeMilestoneIdx + 1} ({Math.round(xp)} XP)</span>
+              <span>{nextMilestone ? `${Math.round(nextMilestone.minXp)} XP` : 'Max Level'}</span>
+            </div>
+            <div style={{ height: 6, background: 'var(--bg-3)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${levelProgress}%`, background: frameColor, borderRadius: 3 }}></div>
+            </div>
           </div>
 
           {/* Mini Stats Inside Card */}
@@ -247,7 +283,99 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+      </div>
 
+      {/* Dynamic Parallel Level Milestones Board */}
+      <div className="card" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div>
+          <h3 style={{ margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+            🏆 XP Stufen-Meilensteine / Achievements
+          </h3>
+          <p className="text-muted text-xs" style={{ margin: 0 }}>
+            Verfolge deinen akademischen Rang in beiden Lernpfaden! Dein aktueller Fortschritt schaltet Titel frei.
+          </p>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: 20
+        }}>
+          {/* German milestones */}
+          <div style={{ background: 'var(--bg-3)', padding: 18, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+            <h4 style={{ margin: '0 0 14px 0', color: 'var(--accent-light)', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+              🇩🇪 Deutsch-Pfad Ränge
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {MILESTONES.map((m, idx) => {
+                const isUnlocked = xp >= m.minXp
+                return (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: isUnlocked ? 'rgba(34, 197, 94, 0.05)' : 'transparent',
+                    border: isUnlocked ? '1px solid rgba(34, 197, 94, 0.2)' : '1px dashed var(--border)',
+                    borderRadius: 8,
+                    opacity: isUnlocked ? 1 : 0.6
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, background: 'var(--bg-1)', padding: '2px 6px', borderRadius: 4 }}>
+                        Lvl {m.level}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isUnlocked ? 'var(--text-0)' : 'var(--text-2)' }}>
+                        {m.name}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', fontWeight: 700 }}>
+                      <span style={{ color: isUnlocked ? 'var(--green)' : 'var(--text-3)' }}>{m.minXp} XP</span>
+                      {isUnlocked ? <Check size={14} style={{ color: 'var(--green)' }} /> : <Lock size={12} style={{ color: 'var(--text-3)' }} />}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Medical milestones */}
+          <div style={{ background: 'var(--bg-3)', padding: 18, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+            <h4 style={{ margin: '0 0 14px 0', color: 'var(--gold)', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+              🩺 Medical Cardiologist Ränge
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {MILESTONES.map((m, idx) => {
+                const isUnlocked = xp >= m.minXp
+                return (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: isUnlocked ? 'rgba(234, 179, 8, 0.05)' : 'transparent',
+                    border: isUnlocked ? '1px solid rgba(234, 179, 8, 0.2)' : '1px dashed var(--border)',
+                    borderRadius: 8,
+                    opacity: isUnlocked ? 1 : 0.6
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, background: 'var(--bg-1)', padding: '2px 6px', borderRadius: 4 }}>
+                        Lvl {m.level}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isUnlocked ? 'var(--text-0)' : 'var(--text-2)' }}>
+                        {m.medicalName}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', fontWeight: 700 }}>
+                      <span style={{ color: isUnlocked ? 'var(--gold)' : 'var(--text-3)' }}>{m.minXp} XP</span>
+                      {isUnlocked ? <Check size={14} style={{ color: 'var(--gold)' }} /> : <Lock size={12} style={{ color: 'var(--text-3)' }} />}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+        </div>
       </div>
 
       <div className={`toast${toast ? ' show success' : ''}`}>{toast}</div>
