@@ -268,7 +268,19 @@ export default function Layout({ children, theme, onToggleTheme }: LayoutProps) 
             </button>
           </>
         ) : (
-          <NavLink to="/auth" className="nav-link" onClick={() => setSidebarOpen(false)}>
+          <NavLink 
+            to="/auth" 
+            className="nav-link" 
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1.5px solid rgba(59, 130, 246, 0.25)',
+              color: 'var(--accent-light)',
+              fontWeight: 600,
+              borderRadius: 'var(--radius)',
+              marginTop: 6
+            }}
+          >
             <User size={18} />
             Anmelden
           </NavLink>
@@ -311,9 +323,20 @@ export default function Layout({ children, theme, onToggleTheme }: LayoutProps) 
             <Menu size={20} />
           </button>
           <span style={{ fontWeight: 700, fontSize: '1rem' }}>Riefy</span>
-          <button className="btn-icon" onClick={onToggleTheme}>
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button className="btn-icon" onClick={onToggleTheme}>
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            {user ? (
+              <button className="btn-icon" onClick={() => navigate('/profile')} title="Profil">
+                <User size={18} style={{ color: 'var(--accent-light)' }} />
+              </button>
+            ) : (
+              <button className="btn-icon" onClick={() => navigate('/auth')} title="Anmelden">
+                <User size={18} />
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Global Gamification Capsule Bar */}
