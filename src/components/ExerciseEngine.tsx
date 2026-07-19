@@ -193,6 +193,25 @@ export default function ExerciseEngine({
 
   // Play audio url or fallback to TTS
   const playAudio = useCallback(() => {
+    const isMedical = language === 'en-US'
+    
+    // In medical mode, customize text to speak
+    if (isMedical) {
+      if (mode === 'mcq') {
+        const letters = ['A', 'B', 'C', 'D']
+        const optionsSpeech = mcqOptions.map((opt, i) => `Option ${letters[i] || (i + 1)}: ${opt}`).join('. ')
+        const fullSpeech = `Question: ${item?.translation || ''}. ${optionsSpeech}`
+        playTTS(fullSpeech)
+        return
+      } else {
+        const extraText = item?.extra ? `. Explanation: ${item.extra}` : ''
+        const fullSpeech = `${target}. Definition: ${item?.translation || ''}${extraText}`
+        playTTS(fullSpeech)
+        return
+      }
+    }
+
+    // Standard Language Mode logic (play sound URL or fallback to standard TTS of the target text)
     if (item?.audioUrl) {
       if (audioRef.current) audioRef.current.pause()
       const audio = new Audio(item.audioUrl)
@@ -206,7 +225,7 @@ export default function ExerciseEngine({
     } else {
       playTTS(target)
     }
-  }, [item, target, playTTS])
+  }, [item, target, playTTS, language, mode, mcqOptions])
 
   // Play/Stop toggle helper
   const toggleAudio = () => {
