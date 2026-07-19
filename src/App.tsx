@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import ExercisesPage from './pages/Exercises'
@@ -107,7 +107,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <ProgressProvider>
           <LearningPathProvider>
@@ -115,6 +115,6 @@ export default function App() {
           </LearningPathProvider>
         </ProgressProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
