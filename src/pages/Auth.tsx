@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, CheckCircle, LogOut, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 type Mode = 'login' | 'register'
 
 export default function AuthPage() {
-  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const { user, signIn, signUp, signInWithGoogle, signOut } = useAuth()
+  const navigate = useNavigate()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,6 +26,7 @@ export default function AuthPage() {
     if (mode === 'login') {
       const { error } = await signIn(email, password)
       if (error) setError(error.message)
+      else navigate('/')
     } else {
       if (!displayName.trim()) { setError('Bitte gib deinen Namen ein.'); setLoading(false); return }
       const { error } = await signUp(email, password, displayName)
@@ -39,6 +42,53 @@ export default function AuthPage() {
     const { error } = await signInWithGoogle()
     if (error) setError(error.message)
     setGoogleLoading(false)
+  }
+
+  // Signed in State Card UI
+  if (user) {
+    const provider = user.app_metadata?.provider || 'E-Mail'
+    return (
+      <div className="auth-page">
+        <div className="auth-card animate-fade" style={{ textAlign: 'center', padding: '36px 28px' }}>
+          <div style={{
+            width: 70, height: 70, borderRadius: '50%',
+            background: 'var(--green-dim)', color: 'var(--green)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '2rem', margin: '0 auto 20px auto', border: '2.5px solid var(--green)'
+          }}>
+            <CheckCircle size={36} />
+          </div>
+
+          <h2 style={{ marginBottom: 4 }}>Angemeldet</h2>
+          <p className="text-muted text-sm" style={{ marginBottom: 24 }}>
+            Du bist angemeldet als: <br />
+            <strong style={{ color: 'var(--text-0)', fontSize: '0.92rem' }}>{user.email}</strong>
+            <span style={{
+              display: 'block', fontSize: '0.72rem', textTransform: 'uppercase',
+              color: 'var(--accent-light)', marginTop: 6, fontWeight: 700
+            }}>
+              Methode: {provider}
+            </span>
+          </p>
+
+          <button 
+            className="btn btn-primary w-full" 
+            onClick={() => navigate('/')} 
+            style={{ width: '100%', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            Lernübungen starten <ArrowRight size={16} />
+          </button>
+
+          <button 
+            className="btn btn-ghost w-full" 
+            onClick={async () => { await signOut(); navigate('/auth') }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid var(--border)' }}
+          >
+            <LogOut size={15} /> Abmelden
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
